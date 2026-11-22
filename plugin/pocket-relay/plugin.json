@@ -1,0 +1,9 @@
+{
+  "name": "pocket-relay",
+  "displayName": "Pocket Relay",
+  "description": "Pair an iPhone or iPad with this computer by scanning a QR code, then follow and steer your agent sessions from the phone over your local network.",
+  "version": "0.1.0",
+  "logo": "assets/logo.svg",
+  "author": "Brett Pollak",
+  "suggestedPrompts": ["Pair my phone"]
+}

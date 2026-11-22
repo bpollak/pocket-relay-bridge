@@ -1,0 +1,13 @@
+{
+  "command": "node",
+  "args": ["main.mjs"],
+  "restart_policy": "always",
+  "display_name": "Pocket Relay",
+  "description": "Keeps the phone bridge running and shows the pairing QR code.",
+  "has_web_ui": true,
+  "agent_permissions": { "allows_user_interactions": false },
+  "ui_config": {
+    "display_name": "Pocket Relay",
+    "views": [{ "path": "/", "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE", "title": "Pair phone" }]
+  }
+}

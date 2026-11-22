@@ -1,0 +1,39 @@
+[project]
+name = "antigravity-bridge"
+version = "1.0.0"
+description = "Pocket Relay Bridge: computer companion for the Pocket Relay iOS app — connects native iOS over Tailscale HTTPS / LAN to Google Antigravity SDK & ACP."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "pydantic>=2.10.0",
+    "websockets>=14.0",
+    "qrcode[pil]>=8.0",
+    "croniter>=6.0.0",
+    "httpx>=0.28.0",
+    "python-multipart>=0.0.20",
+    "zeroconf>=0.136.0",
+    "google-antigravity>=0.1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+]
+
+[project.scripts]
+antigravity-bridge = "antigravity_bridge.main:cli_main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["antigravity_bridge"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["."]
+testpaths = ["tests"]
