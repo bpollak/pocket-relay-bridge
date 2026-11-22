@@ -63,8 +63,8 @@ const PAGE = `<!doctype html><html><head><meta charset="utf-8"><script src="/pre
      const r=await fetch('/pairing',{method:'POST',headers:{'x-sidecar-token':token,'content-type':'application/json'},body:'{}'});
      const d=await r.json();
      if(d.state==='running'){ img.src=d.qr; img.hidden=false; host.textContent=d.hostName+' is ready · '+d.models+' models'; msg.textContent='Keep this code private. It lets a phone control this computer.'; }
-     else if(d.state==='starting'){ img.hidden=true; host.textContent='Starting the phone bridge…'; msg.textContent=''; setTimeout(load,3000); }
-     else { img.hidden=true; host.textContent='The phone bridge is not installed on this computer.'; msg.textContent=d.error||''; }
+     else if(d.state==='starting'){ img.hidden=true; host.textContent='Starting Pocket Relay Bridge…'; msg.textContent=''; setTimeout(load,3000); }
+     else { img.hidden=true; host.textContent='Pocket Relay Bridge is not installed on this computer.'; msg.innerHTML='Install it with one command, then press Refresh. Instructions: <b>github.com/bpollak/pocket-relay-bridge</b>'; }
    }catch(e){ img.hidden=true; msg.textContent='Could not load the pairing code: '+e.message; }
  }
  document.getElementById('again').onclick=load; load();
