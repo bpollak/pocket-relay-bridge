@@ -6,8 +6,8 @@ that lets you follow and steer Google Antigravity on your own computer from your
 The bridge runs on your Mac, Windows PC or Linux computer. The app on your phone connects to it over
 your local network or a private network you run. There is no Pocket Relay server in between.
 
-- App and support: https://bpollak.github.io/pocket-relay-site/
-- Privacy: https://bpollak.github.io/pocket-relay-site/privacy/
+- App and support: https://pocketrelay.app/
+- Privacy: https://pocketrelay.app/privacy/
 
 Pocket Relay is an independent project. It is not affiliated with, endorsed by or sponsored by Google.
 Google and Antigravity are trademarks of Google LLC.

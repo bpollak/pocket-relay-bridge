@@ -33,10 +33,10 @@ It adds no skills, rules, hooks or MCP servers, and it does not change how your 
 
 The phone talks only to this computer. There is no Pocket Relay server. The pairing QR code carries
 a token that lets a phone control this computer, so keep it private. A direct connection over local
-Wi-Fi is not encrypted; use networks you trust. Full policy: https://bpollak.github.io/pocket-relay-site/privacy/
+Wi-Fi is not encrypted; use networks you trust. Full policy: https://pocketrelay.app/privacy/
 
 ## Support
 
-https://bpollak.github.io/pocket-relay-site/support/
+https://pocketrelay.app/support/
 
 Pocket Relay is an independent project. It is not affiliated with, endorsed by or sponsored by Google.

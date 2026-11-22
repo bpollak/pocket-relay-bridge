@@ -6,12 +6,12 @@
   "logo": "assets/logo.svg",
   "author": {
     "name": "Brett Pollak",
-    "url": "https://bpollak.github.io/pocket-relay-site/"
+    "url": "https://pocketrelay.app/"
   },
   "suggestedPrompts": [
     "Pair my phone"
   ],
-  "homepage": "https://bpollak.github.io/pocket-relay-site/",
+  "homepage": "https://pocketrelay.app/",
   "repository": "https://github.com/bpollak/pocket-relay-bridge",
   "keywords": [
     "mobile",
