@@ -51,6 +51,15 @@ export class TunnelRoom extends DurableObject {
 
   async fetch(request) {
     const role = new URL(request.url).pathname.slice(1);
+
+    if (role !== "host") {
+      // Refuse before upgrading: a plain HTTP answer always reaches the phone.
+      if (!this.#host()) return new Response("host offline", { status: 503 });
+      if (this.ctx.getWebSockets("client").length >= MAX_CLIENTS) {
+        return new Response("too many connections", { status: 429 });
+      }
+    }
+
     const pair = new WebSocketPair();
     const [outside, inside] = Object.values(pair);
 
@@ -63,18 +72,6 @@ export class TunnelRoom extends DurableObject {
     }
 
     const host = this.#host();
-    if (!host) {
-      this.ctx.acceptWebSocket(inside, ["rejected"]);
-      inside.serializeAttachment({ role: "rejected" });
-      inside.close(4404, "host offline");
-      return new Response(null, { status: 101, webSocket: outside });
-    }
-    if (this.ctx.getWebSockets("client").length >= MAX_CLIENTS) {
-      this.ctx.acceptWebSocket(inside, ["rejected"]);
-      inside.serializeAttachment({ role: "rejected" });
-      inside.close(4429, "too many connections");
-      return new Response(null, { status: 101, webSocket: outside });
-    }
     let id;
     do {
       id = crypto.getRandomValues(new Uint32Array(1))[0];

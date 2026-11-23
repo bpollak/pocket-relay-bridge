@@ -122,8 +122,7 @@ globalThis.Response = class extends RealResponse { constructor(body, init = {}) 
 const roomObject = new TunnelRoom(ctx, {});
 const join = async (role) => { await roomObject.fetch(new Request(`https://room/${role}`)); return made.at(-1); };
 
-const early = await join("client");
-assert.equal(early.closed, 4404, "no host yet");
+assert.equal((await roomObject.fetch(new Request("https://room/client"))).status, 503, "no host yet");
 const hostSocket = await join("host");
 const phone = await join("client");
 const { c: phoneId } = JSON.parse(hostSocket.sent.at(-1));
@@ -152,7 +151,7 @@ roomObject.webSocketClose(phone);
 assert.deepEqual(JSON.parse(hostSocket.sent.at(-1)), { t: "close", c: phoneId });
 
 roomObject.webSocketClose(hostSocket, 1006);
-assert.equal((await join("client")).closed, 4404, "a phone arriving after the host left is told at once");
+assert.equal((await roomObject.fetch(new Request("https://room/client"))).status, 503, "a phone arriving after the host left is told at once");
 assert.equal(other.closed, 4410, "phones are dropped when the host goes away");
 globalThis.Response = RealResponse;
 
