@@ -1,0 +1,29 @@
+name = "pocket-relay-push"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+workers_dev = false
+routes = [
+  { pattern = "push.pocketrelay.app", custom_domain = true },
+  { pattern = "relay.pocketrelay.app", custom_domain = true },
+]
+
+# One Durable Object per bridge, for the remote access tunnel. It stores nothing.
+[[durable_objects.bindings]]
+name = "TUNNEL_ROOM"
+class_name = "TunnelRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TunnelRoom"]
+
+# Request contents are never logged; keep invocation logs off as well.
+[observability]
+enabled = false
+
+[vars]
+APNS_TEAM_ID = "ZA8AJG27JX"
+APNS_BUNDLE_ID = "com.brettpollak.antigravitymobile"
+
+# Secrets, set once with `wrangler secret put <NAME>` (never commit them):
+#   APNS_KEY_ID       the 10-character ID of the Apple push key
+#   APNS_PRIVATE_KEY  the contents of the AuthKey_XXXXXXXXXX.p8 file

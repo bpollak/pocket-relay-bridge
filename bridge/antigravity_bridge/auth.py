@@ -5,7 +5,7 @@ from __future__ import annotations
 import hmac
 import io
 import os
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import qrcode
 from fastapi import Header, HTTPException, Query, status
@@ -36,7 +36,12 @@ def extract_token(
     return token
 
 
-def build_pairing_info(store: BridgeStore, port: int = 8765, public_url: str | None = None) -> PairingInfo:
+def build_pairing_info(
+    store: BridgeStore,
+    port: int = 8765,
+    public_url: str | None = None,
+    remote: dict[str, str] | None = None,
+) -> PairingInfo:
     dns, _ = detect_tailscale_info()
     local_url = f"http://127.0.0.1:{port}"
     tailscale_url = f"https://{dns}" if dns else None
@@ -64,7 +69,13 @@ def build_pairing_info(store: BridgeStore, port: int = 8765, public_url: str | N
         lan_url = f"http://{lan_ip}:{port}"
         if lan_url != effective_base:
             params["lan_url"] = lan_url
-    query = urlencode(params)
+    if remote:
+        # Lets the phone reach this computer from another network, through the encrypted tunnel.
+        params["relay"] = remote["relay_url"]
+        params["room"] = remote["relay_room"]
+        params["rk"] = remote["relay_key"]
+    # Percent-encode spaces: the app does not read "+" as a space, so "My Mac" would show as "My+Mac".
+    query = urlencode(params, quote_via=quote)
     pairing_uri = f"pocketrelay://pair?{query}"
     return PairingInfo(
         host_id=store.host_id,
@@ -74,6 +85,9 @@ def build_pairing_info(store: BridgeStore, port: int = 8765, public_url: str | N
         local_url=local_url,
         token=store.auth_token,
         pairing_uri=pairing_uri,
+        relay_url=remote["relay_url"] if remote else None,
+        relay_room=remote["relay_room"] if remote else None,
+        relay_key=remote["relay_key"] if remote else None,
     )
 
 

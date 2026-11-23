@@ -176,10 +176,20 @@ class PairingInfo(BaseModel):
     local_url: str
     token: str
     pairing_uri: str
+    #: Remote access (set when it is turned on): relay address, this bridge's room and tunnel key.
+    relay_url: str | None = None
+    relay_room: str | None = None
+    relay_key: str | None = None
 
 
 class PairCodeExchangeRequest(BaseModel):
     code: str
+
+
+class PushDeviceRequest(BaseModel):
+    device_token: str
+    environment: str = "production"
+    show_detail: bool = False
 
 
 # ---------------------------------------------------------------------------

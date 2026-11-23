@@ -39,6 +39,7 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "croniter" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "google-antigravity" },
     { name = "httpx" },
@@ -59,6 +60,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "croniter", specifier = ">=6.0.0" },
+    { name = "cryptography", specifier = ">=42.0.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-antigravity", specifier = ">=0.1.24" },
     { name = "httpx", specifier = ">=0.28.0" },

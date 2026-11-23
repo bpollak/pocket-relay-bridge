@@ -1,0 +1,6 @@
+{
+  "name": "pocket-relay-push",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node test.mjs" }
+}

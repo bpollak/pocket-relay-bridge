@@ -47,6 +47,7 @@ from .models import (
     PairCodeExchangeRequest,
     PairingInfo,
     ProjectSettingsOverride,
+    PushDeviceRequest,
     QuestionAnswerRequest,
     SearchResultItem,
     SendMessageRequest,
@@ -63,6 +64,8 @@ from .services.approvals import ApprovalBroker
 from .services.conversations import ConversationService
 from .services.customizations import CustomizationsService
 from .services.discovery import DiscoveryService
+from .services.push import PushService
+from .services.tunnel import TunnelService
 from .services.scheduler import SchedulerService
 from .services.terminals import TerminalService
 from .services.workspace import WorkspaceService
@@ -162,8 +165,12 @@ class SocketHub:
         await ws.accept()
         self._clients.add(ws)
 
-    def disconnect(self, ws: WebSocket) -> None:
+    def disconnect(self, ws: Any) -> None:
         self._clients.discard(ws)
+
+    def add_listener(self, listener: Any) -> None:
+        """Adds anything with an async `send_text`, such as a remote-access tunnel session."""
+        self._clients.add(listener)
 
     async def broadcast(self, event: StreamEvent) -> None:
         if not self._clients:
@@ -187,7 +194,15 @@ def create_app(
     started_at = time.monotonic()
     store = BridgeStore(data_dir=data_dir)
     hub = SocketHub()
-    approvals = ApprovalBroker(emit=hub.broadcast)
+    push = PushService(
+        data_dir=store.data_dir,
+        host_name=lambda: store.host_name,
+        conversation_title=lambda cid: getattr(store.conversations.get(cid), "title", None),
+        waiting_count=lambda: len(approvals.list_approvals()) + len(approvals.list_questions()),
+    )
+    # Approvals, questions and finished turns also go out as push alerts to registered phones.
+    emit_with_push = push.wrap(hub.broadcast)
+    approvals = ApprovalBroker(emit=emit_with_push)
     workspace_service = WorkspaceService(store)
     customizations = CustomizationsService(store)
     terminals = TerminalService(store, emit=hub.broadcast)
@@ -201,7 +216,7 @@ def create_app(
         sdk_backend=sdk_backend,
         acp_backend=acp_backend,
         fallback_backend=fallback_backend,
-        emit=hub.broadcast,
+        emit=emit_with_push,
     )
     scheduler = SchedulerService(store, conversations, emit=hub.broadcast)
     discovery = DiscoveryService(store, port=port, public_url=public_url)
@@ -209,6 +224,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         scheduler.start()
+        tunnel.start()
         await discovery.start()
         if acp_backend.is_available():
             try:
@@ -221,6 +237,8 @@ def create_app(
         try:
             yield
         finally:
+            await push.drain()
+            await tunnel.stop()
             await discovery.stop()
             await scheduler.stop()
             await terminals.shutdown()
@@ -229,6 +247,42 @@ def create_app(
     # No CORS middleware on purpose: the native iOS app does not need it, and allowing
     # browser origins would let any web page read the pairing page / call the API.
     install_log_redaction()
+
+    def token_is_valid(token: str | None) -> bool:
+        try:
+            verify_bearer_token(store, token)
+            return True
+        except HTTPException:
+            return False
+
+    def connected_event_json() -> str:
+        return StreamEvent(
+            type="connected",
+            payload={
+                "host_id": store.host_id,
+                "host_name": store.host_name,
+                "pending_approvals": [a.model_dump(mode="json") for a in approvals.list_approvals()],
+                "pending_questions": [q.model_dump(mode="json") for q in approvals.list_questions()],
+            },
+        ).model_dump_json()
+
+    # Remote access: an outbound, end-to-end encrypted tunnel for phones on another network.
+    tunnel = TunnelService(
+        data_dir=store.data_dir,
+        app=app,
+        hub=hub,
+        verify_token=token_is_valid,
+        connected_event=connected_event_json,
+    )
+
+    def remote_info() -> dict[str, str] | None:
+        if not tunnel.enabled:
+            return None
+        return {
+            "relay_url": tunnel.relay_url,
+            "relay_room": tunnel.credentials.room_id,
+            "relay_key": tunnel.credentials.tunnel_key_text,
+        }
 
     async def broadcast_settings() -> None:
         await hub.broadcast(
@@ -247,6 +301,8 @@ def create_app(
     app.state.conversations = conversations
     app.state.scheduler = scheduler
     app.state.discovery = discovery
+    app.state.push = push
+    app.state.tunnel = tunnel
 
     def require_auth(token: str | None = Depends(extract_token)) -> None:
         verify_bearer_token(store, token)
@@ -284,16 +340,34 @@ def create_app(
 
     @app.get("/api/pairing", response_model=PairingInfo, dependencies=[Depends(require_auth)])
     async def get_pairing() -> PairingInfo:
-        return await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url)
+        return await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url, remote=remote_info())
 
     @app.post("/api/pairing/rotate", response_model=PairingInfo, dependencies=[Depends(require_auth)])
     async def rotate_pairing() -> PairingInfo:
         store.rotate_token()
-        return await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url)
+        push.clear()
+        # Unpairing every phone also has to cut off remote access for them.
+        tunnel.credentials.rotate()
+        if tunnel.enabled:
+            await tunnel.restart()
+        return await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url, remote=remote_info())
+
+    @app.post("/api/push/devices", dependencies=[Depends(require_auth)])
+    async def register_push_device(req: PushDeviceRequest) -> dict[str, Any]:
+        if not PushService.is_valid_token(req.device_token):
+            raise HTTPException(status_code=422, detail="Invalid device token")
+        if req.environment not in {"sandbox", "production"}:
+            raise HTTPException(status_code=422, detail="Invalid environment")
+        push.register(req.device_token, req.environment, req.show_detail)
+        return {"registered": True, "enabled": push.enabled}
+
+    @app.delete("/api/push/devices/{device_token}", dependencies=[Depends(require_auth)])
+    async def unregister_push_device(device_token: str) -> dict[str, Any]:
+        return {"removed": push.unregister(device_token)}
 
     @app.get("/api/pairing/qr.png", dependencies=[Depends(require_auth)])
     async def get_pairing_qr_png() -> Response:
-        info = await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url)
+        info = await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url, remote=remote_info())
         img = qrcode.make(info.pairing_uri)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -401,7 +475,7 @@ def create_app(
             raise denied
         import base64 as _b64
 
-        info = await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url)
+        info = await asyncio.to_thread(build_pairing_info, store, port=port, public_url=public_url, remote=remote_info())
         code, remaining = discovery.arm_pairing()
         # Arriving from the phone's "type a code" flow: show the code without an extra click.
         details_open = " open" if request.query_params.get("show") == "code" else ""
@@ -892,17 +966,7 @@ def create_app(
 
         await hub.connect(ws)
         try:
-            await ws.send_text(
-                StreamEvent(
-                    type="connected",
-                    payload={
-                        "host_id": store.host_id,
-                        "host_name": store.host_name,
-                        "pending_approvals": [a.model_dump(mode="json") for a in approvals.list_approvals()],
-                        "pending_questions": [q.model_dump(mode="json") for q in approvals.list_questions()],
-                    },
-                ).model_dump_json()
-            )
+            await ws.send_text(connected_event_json())
             while True:
                 msg = await ws.receive_text()
                 if msg == "ping":
@@ -925,7 +989,13 @@ def cli_main() -> None:
 
     app = create_app(port=args.port, public_url=args.public_url)
     store: BridgeStore = app.state.store
-    info = build_pairing_info(store, port=args.port, public_url=args.public_url)
+    tunnel = app.state.tunnel
+    remote = (
+        {"relay_url": tunnel.relay_url, "relay_room": tunnel.credentials.room_id,
+         "relay_key": tunnel.credentials.tunnel_key_text}
+        if tunnel.enabled else None
+    )
+    info = build_pairing_info(store, port=args.port, public_url=args.public_url, remote=remote)
 
     print("\n=== Pocket Relay Bridge ===")
     print(f"Host:       {info.host_name} ({info.host_id})")
