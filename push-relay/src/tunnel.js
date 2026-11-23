@@ -44,6 +44,11 @@ export async function handleTunnel(request, env) {
 }
 
 export class TunnelRoom extends DurableObject {
+  /** The bridge's socket, ignoring one that is already closing. */
+  #host() {
+    return this.ctx.getWebSockets("host").find((socket) => socket.readyState === 1);
+  }
+
   async fetch(request) {
     const role = new URL(request.url).pathname.slice(1);
     const pair = new WebSocketPair();
@@ -57,7 +62,7 @@ export class TunnelRoom extends DurableObject {
       return new Response(null, { status: 101, webSocket: outside });
     }
 
-    const host = this.ctx.getWebSockets("host")[0];
+    const host = this.#host();
     if (!host) {
       this.ctx.acceptWebSocket(inside, ["rejected"]);
       inside.serializeAttachment({ role: "rejected" });
@@ -102,7 +107,7 @@ export class TunnelRoom extends DurableObject {
     }
     if (info?.role === "client") {
       if (typeof message === "string" || message.byteLength === 0 || message.byteLength > MAX_FRAME_BYTES) return;
-      const host = this.ctx.getWebSockets("host")[0];
+      const host = this.#host();
       if (!host) {
         ws.close(4410, "host went away");
         return;
@@ -114,7 +119,13 @@ export class TunnelRoom extends DurableObject {
     }
   }
 
-  webSocketClose(ws) {
+  webSocketClose(ws, code) {
+    // Finish the closing handshake; until then Cloudflare still lists the socket.
+    try {
+      ws.close(code === 1005 || code === 1006 ? 1000 : code);
+    } catch {
+      // already closed
+    }
     this.#left(ws);
   }
 
@@ -126,12 +137,12 @@ export class TunnelRoom extends DurableObject {
     const info = ws.deserializeAttachment();
     if (info?.role === "host") {
       // Another host socket may already have replaced this one; only then keep the clients.
-      const others = this.ctx.getWebSockets("host").filter((s) => s !== ws);
+      const others = this.ctx.getWebSockets("host").filter((s) => s !== ws && s.readyState === 1);
       if (others.length === 0) {
         for (const client of this.ctx.getWebSockets("client")) client.close(4410, "host went away");
       }
     } else if (info?.role === "client") {
-      const host = this.ctx.getWebSockets("host")[0];
+      const host = this.#host();
       try {
         host?.send(JSON.stringify({ t: "close", c: info.id }));
       } catch {

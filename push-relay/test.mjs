@@ -104,10 +104,11 @@ assert.equal((await worker.fetch(new Request(`https://relay.example/v1/tunnel/${
 // Forwarding rules, with Cloudflare's socket bookkeeping replaced by a small stand-in.
 class FakeSocket {
   constructor() { this.sent = []; this.closed = null; this.tags = []; }
+  get readyState() { return this.closed === null ? 1 : 3; }
   serializeAttachment(v) { this.att = v; }
   deserializeAttachment() { return this.att; }
   send(m) { this.sent.push(m); }
-  close(code) { this.closed = code; }
+  close(code) { if (this.closed === null) this.closed = code; }
 }
 const sockets = [];
 const ctx = {
@@ -150,8 +151,8 @@ assert.equal(phone.closed, 4403);
 roomObject.webSocketClose(phone);
 assert.deepEqual(JSON.parse(hostSocket.sent.at(-1)), { t: "close", c: phoneId });
 
-hostSocket.closed = 1006;
-roomObject.webSocketClose(hostSocket);
+roomObject.webSocketClose(hostSocket, 1006);
+assert.equal((await join("client")).closed, 4404, "a phone arriving after the host left is told at once");
 assert.equal(other.closed, 4410, "phones are dropped when the host goes away");
 globalThis.Response = RealResponse;
 
