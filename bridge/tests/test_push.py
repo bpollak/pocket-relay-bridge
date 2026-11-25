@@ -150,7 +150,7 @@ def test_push_device_endpoints(client_and_token):  # noqa: F811
     ok = client.post("/api/push/devices",
                      json={"device_token": TOKEN_A.upper(), "environment": "sandbox", "show_detail": True},
                      headers=auth_headers(token))
-    assert ok.status_code == 200 and ok.json()["registered"] is True
+    assert ok.status_code == 200 and ok.json()["registered"] is True and ok.json()["deliverable"] is True
     assert push.device_count == 1
 
     removed = client.delete(f"/api/push/devices/{TOKEN_A}", headers=auth_headers(token))

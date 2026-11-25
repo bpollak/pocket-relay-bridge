@@ -362,7 +362,8 @@ def create_app(
             # The phone keeps its own alerts until the push service can deliver.
             raise HTTPException(status_code=503, detail="Push alerts are not available yet")
         push.register(req.device_token, req.environment, req.show_detail)
-        return {"registered": True, "enabled": push.enabled}
+        # "deliverable" tells the app it can rely on pushes and stop making its own alerts.
+        return {"registered": True, "enabled": push.enabled, "deliverable": True}
 
     @app.delete("/api/push/devices/{device_token}", dependencies=[Depends(require_auth)])
     async def unregister_push_device(device_token: str) -> dict[str, Any]:
