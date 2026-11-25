@@ -2,7 +2,7 @@
   "name": "pocket-relay",
   "displayName": "Pocket Relay",
   "description": "Pair an iPhone or iPad with this computer by scanning a QR code, then follow and steer your agent sessions from the Pocket Relay app.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "logo": "assets/logo.svg",
   "author": {
     "name": "Brett Pollak",

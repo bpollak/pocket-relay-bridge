@@ -23,6 +23,13 @@ if (-not $Agy) {
     $Candidate = Join-Path $env:LOCALAPPDATA "agy\bin\agy.exe"
     if (Test-Path $Candidate) { $Agy = $Candidate }
 }
+if (-not $Agy -and $env:POCKET_RELAY_NO_AGY_INSTALL -ne "1") {
+    Say "Installing the Google Antigravity command-line tool (agy) with Google's installer"
+    # Run Google's installer in its own PowerShell so anything it does on exit cannot stop this script.
+    & powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://antigravity.google/cli/install.ps1 | iex"
+    $Candidate = Join-Path $env:LOCALAPPDATA "agy\bin\agy.exe"
+    if (Test-Path $Candidate) { $Agy = $Candidate }
+}
 if (-not $Agy) {
     throw "The Google Antigravity command-line tool (agy) was not found. Install Google Antigravity and sign in, then install its command-line tool with: irm https://antigravity.google/cli/install.ps1 | iex  -- then open a new PowerShell window and run this installer again. Step-by-step help: https://pocketrelay.app/setup/"
 }
@@ -93,6 +100,6 @@ Write-Host ""
 Write-Host "Next: pair your iPhone or iPad"
 Write-Host "  1. In Antigravity, open the Pocket Relay panel. It shows a QR code."
 Write-Host "     (No panel? Open http://127.0.0.1:$Port/pair in a browser on this computer.)"
-Write-Host "  2. In the Pocket Relay app, tap Scan QR or Manage Hosts, then Scan QR Code, and point the camera at the code."
+Write-Host "  2. In the Pocket Relay app, tap Scan QR Code and point the camera at the code."
 Write-Host ""
 Write-Host "Windows may ask whether to allow the bridge through the firewall on private networks. Allow it so your phone can connect."

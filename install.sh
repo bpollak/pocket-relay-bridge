@@ -4,7 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/bpollak/pocket-relay-bridge/main/install.sh | bash
 #
 # What it does:
-#   1. Checks for the Google Antigravity command-line tool (agy).
+#   1. Checks for the Google Antigravity command-line tool (agy) and installs it with Google's
+#      installer if it is missing (skip with POCKET_RELAY_NO_AGY_INSTALL=1).
 #   2. Installs uv (a Python package manager) if it is missing.
 #   3. Copies Pocket Relay Bridge to ~/.antigravity-mobile/runtime and installs its dependencies.
 #   4. Sets the bridge to start when you log in (launchd on macOS, systemd on Linux).
@@ -44,15 +45,22 @@ AGY=""
 if command -v agy >/dev/null 2>&1; then
   AGY="$(command -v agy)"
 fi
+if [ -z "${AGY}" ] && [ "${POCKET_RELAY_NO_AGY_INSTALL:-}" != "1" ]; then
+  say "Installing the Google Antigravity command-line tool (agy) with Google's installer"
+  if curl -fsSL https://antigravity.google/cli/install.sh | bash; then
+    export PATH="${HOME}/.local/bin:${PATH}"
+    hash -r 2>/dev/null || true
+    if command -v agy >/dev/null 2>&1; then AGY="$(command -v agy)"; fi
+  fi
+fi
 if [ -z "${AGY}" ]; then
   if [ "${POCKET_RELAY_ALLOW_NO_AGY:-}" = "1" ]; then
     warn "The Antigravity command-line tool (agy) was not found. The bridge will install but cannot reach your agent until it is."
   else
-    die "The Google Antigravity command-line tool (agy) was not found.
-Install Google Antigravity and sign in, then install its command-line tool:
+    die "The Google Antigravity command-line tool (agy) could not be installed.
+Install Google Antigravity from https://antigravity.google/ and sign in, then install its command-line tool:
     curl -fsSL https://antigravity.google/cli/install.sh | bash
-Open a new Terminal window and run this installer again. Step-by-step help: https://pocketrelay.app/setup/
-(To install the bridge anyway, set POCKET_RELAY_ALLOW_NO_AGY=1.)"
+Open a new Terminal window and run this installer again. Step-by-step help: https://pocketrelay.app/setup/"
   fi
 else
   say "Found the Antigravity command-line tool: ${AGY}"
@@ -203,8 +211,7 @@ cat <<EOF
 Next: pair your iPhone or iPad
   1. In Antigravity, open the Pocket Relay panel. It shows a QR code.
      (No panel? Open http://127.0.0.1:${PORT}/pair in a browser on this computer.)
-  2. In the Pocket Relay app, tap Scan QR or Manage Hosts, then Scan QR Code,
-     and point the camera at the code.
+  2. In the Pocket Relay app, tap Scan QR Code and point the camera at the code.
 
 Your computer must be on and awake, and your phone on the same Wi-Fi or private network.
 To remove everything later, run uninstall.sh from https://github.com/${REPO}

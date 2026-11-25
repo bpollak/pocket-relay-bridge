@@ -18,14 +18,57 @@ const bridgeToken = () => JSON.parse(readFileSync(join(BRIDGE_HOME, 'state.json'
 const healthy = async () => { try { return (await fetch(`${BRIDGE}/health`, { signal: AbortSignal.timeout(2500) })).ok; } catch { return false; } };
 
 let spawnedAt = 0;
+
+// The installer registers the bridge as a login service (launchd, systemd or a Scheduled Task).
+// When that service exists, ask it to start the bridge instead of starting a second copy: two copies
+// fight over port 8765, the service keeps failing, and the stray copy has no logs.
+const LAUNCHD_LABEL = 'com.antigravity.mobile.bridge';
+const LAUNCHD_PLIST = join(homedir(), 'Library', 'LaunchAgents', `${LAUNCHD_LABEL}.plist`);
+const SYSTEMD_UNIT = 'antigravity-mobile-bridge.service';
+const SYSTEMD_FILE = join(homedir(), '.config', 'systemd', 'user', SYSTEMD_UNIT);
+const WIN_TASK = 'PocketRelayBridge';
+
+function run(cmd, args) {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(cmd, args, { stdio: 'ignore', windowsHide: true });
+      child.on('error', () => resolve(false));
+      child.on('exit', (code) => resolve(code === 0));
+    } catch { resolve(false); }
+  });
+}
+
+async function startViaService() {
+  if (process.platform === 'darwin' && existsSync(LAUNCHD_PLIST)) {
+    const uid = process.getuid();
+    if (await run('launchctl', ['kickstart', `gui/${uid}/${LAUNCHD_LABEL}`])) return true;
+    await run('launchctl', ['bootstrap', `gui/${uid}`, LAUNCHD_PLIST]);
+    return run('launchctl', ['kickstart', `gui/${uid}/${LAUNCHD_LABEL}`]);
+  }
+  if (process.platform === 'linux' && existsSync(SYSTEMD_FILE)) {
+    return run('systemctl', ['--user', 'start', SYSTEMD_UNIT]);
+  }
+  if (process.platform === 'win32' && await run('schtasks', ['/Query', '/TN', WIN_TASK])) {
+    return run('schtasks', ['/Run', '/TN', WIN_TASK]);
+  }
+  return false;
+}
+
 async function ensureBridge() {
   if (await healthy()) return 'running';
   if (!existsSync(BRIDGE_BIN)) return 'missing';
   if (Date.now() - spawnedAt > 20000) {
     spawnedAt = Date.now();
-    const child = spawn(BRIDGE_BIN, ['--host', '0.0.0.0', '--port', '8765'], { cwd: join(BRIDGE_HOME, 'runtime'), detached: true, stdio: 'ignore' });
-    child.unref();
-    log(`started bridge pid=${child.pid}`);
+    if (await startViaService()) {
+      log('asked the login service to start the bridge');
+    } else {
+      const out = join(BRIDGE_HOME, 'bridge-from-plugin.log');
+      let fd = 'ignore';
+      try { fd = (await import('node:fs')).openSync(out, 'a'); } catch {}
+      const child = spawn(BRIDGE_BIN, ['--host', '0.0.0.0', '--port', '8765'], { cwd: join(BRIDGE_HOME, 'runtime'), detached: true, stdio: ['ignore', fd, fd] });
+      child.unref();
+      log(`started bridge pid=${child.pid}`);
+    }
   }
   return 'starting';
 }

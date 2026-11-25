@@ -23,18 +23,20 @@ Google and Antigravity are trademarks of Google LLC.
 **macOS and Linux**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/bpollak/pocket-relay-bridge/main/install.sh | bash
+curl -fsSL https://pocketrelay.app/install | bash
 ```
 
 **Windows (PowerShell)**
 
 ```powershell
-irm https://raw.githubusercontent.com/bpollak/pocket-relay-bridge/main/install.ps1 | iex
+irm https://pocketrelay.app/install.ps1 | iex
 ```
+
+(The short `pocketrelay.app` addresses run `install.sh` and `install.ps1` from this repository.)
 
 The installer:
 
-1. Checks for the Antigravity command-line tool.
+1. Checks for the Antigravity command-line tool, and installs it with Google's installer if it is missing.
 2. Installs [uv](https://docs.astral.sh/uv/), a Python package manager, if it is missing. uv fetches Python for you.
 3. Copies the bridge to `~/.antigravity-mobile/runtime` and installs its dependencies.
 4. Sets the bridge to start when you log in.
