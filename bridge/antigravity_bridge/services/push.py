@@ -73,6 +73,32 @@ class PushService:
         self._devices: dict[str, dict[str, Any]] = {}
         self._load()
 
+    # ------------------------------------------------------------------ readiness
+
+    _ready: bool | None = None
+    _ready_checked_at: float = 0.0
+
+    async def service_ready(self) -> bool:
+        """Whether the push service can deliver alerts (it has the app's Apple push key).
+
+        An empty request is refused with 503 while the service has no key, and with 400 once it
+        does. The answer is cached for ten minutes. A phone is only told push is on when this is
+        true, so until then it keeps making its own alerts instead of waiting for pushes that never come.
+        """
+        if not self.enabled or not self.relay_url:
+            return False
+        now = time.time()
+        if self._ready is not None and now - self._ready_checked_at < 600:
+            return self._ready
+        try:
+            async with httpx.AsyncClient(timeout=6.0) as client:
+                response = await client.post(self.relay_url, json={})
+            ready = response.status_code != 503 and response.status_code < 500
+        except httpx.HTTPError:
+            return bool(self._ready)
+        self._ready, self._ready_checked_at = ready, now
+        return ready
+
     # ------------------------------------------------------------------ devices
 
     def _load(self) -> None:

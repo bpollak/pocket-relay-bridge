@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 import pytest
@@ -139,6 +140,12 @@ def test_push_device_endpoints(client_and_token):  # noqa: F811
     assert client.post("/api/push/devices", json={"device_token": TOKEN_A}).status_code == 401
     bad = client.post("/api/push/devices", json={"device_token": "not-a-token"}, headers=auth_headers(token))
     assert bad.status_code == 422
+
+    # Until the push service has the app's Apple key, phones are told no, so they keep on-device alerts.
+    push._ready, push._ready_checked_at = False, time.time()
+    not_yet = client.post("/api/push/devices", json={"device_token": TOKEN_A}, headers=auth_headers(token))
+    assert not_yet.status_code == 503 and push.device_count == 0
+    push._ready, push._ready_checked_at = True, time.time()
 
     ok = client.post("/api/push/devices",
                      json={"device_token": TOKEN_A.upper(), "environment": "sandbox", "show_detail": True},

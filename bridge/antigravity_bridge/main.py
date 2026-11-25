@@ -358,6 +358,9 @@ def create_app(
             raise HTTPException(status_code=422, detail="Invalid device token")
         if req.environment not in {"sandbox", "production"}:
             raise HTTPException(status_code=422, detail="Invalid environment")
+        if not await push.service_ready():
+            # The phone keeps its own alerts until the push service can deliver.
+            raise HTTPException(status_code=503, detail="Push alerts are not available yet")
         push.register(req.device_token, req.environment, req.show_detail)
         return {"registered": True, "enabled": push.enabled}
 
