@@ -24,7 +24,7 @@ if (-not $Agy) {
     if (Test-Path $Candidate) { $Agy = $Candidate }
 }
 if (-not $Agy) {
-    throw "The Google Antigravity command-line tool (agy) was not found. Install Google Antigravity and its command-line tool, sign in, then run this installer again."
+    throw "The Google Antigravity command-line tool (agy) was not found. Install Google Antigravity and sign in, then install its command-line tool with: irm https://antigravity.google/cli/install.ps1 | iex  -- then open a new PowerShell window and run this installer again. Step-by-step help: https://pocketrelay.app/setup/"
 }
 Say "Found the Antigravity command-line tool: $Agy"
 
@@ -75,10 +75,24 @@ finally {
     Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue
 }
 
+$PairUrl = "http://127.0.0.1:$Port/pair"
+$Up = $false
+for ($i = 0; $i -lt 30; $i++) {
+    try { Invoke-WebRequest -UseBasicParsing -TimeoutSec 2 "http://127.0.0.1:$Port/health" | Out-Null; $Up = $true; break } catch { Start-Sleep -Seconds 1 }
+}
+if ($Up) {
+    Say "Pocket Relay Bridge is running on port $Port."
+    if ($env:POCKET_RELAY_NO_OPEN -ne "1") {
+        try { Start-Process $PairUrl; Say "Opened the pairing QR code in your browser." } catch { }
+    }
+} else {
+    Write-Host "The bridge did not answer on port $Port yet. Run this installer again if needed." -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "Next: pair your iPhone or iPad"
 Write-Host "  1. In Antigravity, open the Pocket Relay panel. It shows a QR code."
 Write-Host "     (No panel? Open http://127.0.0.1:$Port/pair in a browser on this computer.)"
-Write-Host "  2. In the Pocket Relay app, tap Scan QR Code and point it at the code."
+Write-Host "  2. In the Pocket Relay app, tap Scan QR or Manage Hosts, then Scan QR Code, and point the camera at the code."
 Write-Host ""
 Write-Host "Windows may ask whether to allow the bridge through the firewall on private networks. Allow it so your phone can connect."

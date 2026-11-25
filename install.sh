@@ -49,7 +49,9 @@ if [ -z "${AGY}" ]; then
     warn "The Antigravity command-line tool (agy) was not found. The bridge will install but cannot reach your agent until it is."
   else
     die "The Google Antigravity command-line tool (agy) was not found.
-Install Google Antigravity and its command-line tool first, sign in, then run this installer again.
+Install Google Antigravity and sign in, then install its command-line tool:
+    curl -fsSL https://antigravity.google/cli/install.sh | bash
+Open a new Terminal window and run this installer again. Step-by-step help: https://pocketrelay.app/setup/
 (To install the bridge anyway, set POCKET_RELAY_ALLOW_NO_AGY=1.)"
   fi
 else
@@ -183,6 +185,14 @@ if [ "${POCKET_RELAY_NO_SERVICE:-}" != "1" ]; then
   done
   if [ -n "${ok}" ]; then
     say "Pocket Relay Bridge is running on port ${PORT}."
+    PAIR_URL="http://127.0.0.1:${PORT}/pair"
+    if [ "${POCKET_RELAY_NO_OPEN:-}" != "1" ]; then
+      if [ "$(uname -s)" = "Darwin" ] && command -v open >/dev/null 2>&1; then
+        open "${PAIR_URL}" >/dev/null 2>&1 && say "Opened the pairing QR code in your browser."
+      elif command -v xdg-open >/dev/null 2>&1 && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+        xdg-open "${PAIR_URL}" >/dev/null 2>&1 && say "Opened the pairing QR code in your browser."
+      fi
+    fi
   else
     warn "The bridge did not answer on port ${PORT} yet. Check the log, then run this installer again if needed."
   fi
@@ -193,7 +203,8 @@ cat <<EOF
 Next: pair your iPhone or iPad
   1. In Antigravity, open the Pocket Relay panel. It shows a QR code.
      (No panel? Open http://127.0.0.1:${PORT}/pair in a browser on this computer.)
-  2. In the Pocket Relay app, tap Scan QR Code and point it at the code.
+  2. In the Pocket Relay app, tap Scan QR or Manage Hosts, then Scan QR Code,
+     and point the camera at the code.
 
 Your computer must be on and awake, and your phone on the same Wi-Fi or private network.
 To remove everything later, run uninstall.sh from https://github.com/${REPO}
